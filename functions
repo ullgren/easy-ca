@@ -7,8 +7,10 @@ create-root-ca
 create-signing-ca
 create-server
 create-server-jks
+create-server-p12
 create-client
 create-client-jks
+create-client-p12
 revoke-cert
 functions
 "

@@ -1,0 +1,66 @@
+#!/bin/bash
+# Pontus Ullgren
+
+usage() {
+    echo "Usage: $0 -c CLIENT_NAME"
+    echo "Creates a P12 for use with CLIENT_NAME"
+    echo
+    echo "Options:"
+    echo "    -c CLIENT_NAME  Client name (commonName) for the cert to include in the P12"
+    echo
+    exit 2
+}
+
+CLIENT_NAME=
+
+while getopts c: FLAG; do
+    case $FLAG in
+        c) CLIENT_NAME=${OPTARG}
+           ;;
+        *) usage
+           ;;
+    esac
+done
+
+if [ "${CLIENT_NAME}" == "" ]; then
+    usage
+fi
+
+BIN_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source ${BIN_DIR}/functions
+source ${BIN_DIR}/defaults.conf
+
+# Sanitize the commonName to make it suitable for use in filenames
+SAFE_NAME=`echo ${CLIENT_NAME} | sed 's/\*/star/g'`
+SAFE_NAME=`echo ${SAFE_NAME} | sed 's/[^A-Za-z0-9-]/-/g'`
+
+KEY=private/${SAFE_NAME}.client.key
+LEAFCERT=certs/${SAFE_NAME}.client.crt
+CHAINCERT=ca/ca.crt
+TARGET_KEYSTORE=certs/${SAFE_NAME}.client.p12
+
+
+if [ ! -f ${LEAFCERT} ] && [ ! -f ${KEY} ]; then
+    echo "Server certificate or key does not exists for '${CLIENT_NAME}', exiting."
+    exit 1
+fi
+
+# ----
+# Create PKCS#12 file 
+# ----
+
+# From https://www.sslshopper.com/ssl-converter.html:
+# The PKCS#12 or PFX format is a binary format for storing the server certificate,
+# any intermediate certificates, and the private key in one encryptable file. PFX
+# files usually have extensions such as .pfx and .p12. PFX files are typically used 
+# on Windows machines to import and export certificates and private keys.
+
+TRANSITFILE=`mktemp`
+
+if [[ $? != 0 ]]; then
+  echo "Creation of temporary transit file failed -- exiting" >&2; exit 1
+fi
+
+cat "$KEY" "$LEAFCERT" > "$TRANSITFILE"
+
+openssl pkcs12 -export -in "$TRANSITFILE" -name "${SAFE_NAME}" > "$TARGET_KEYSTORE"
