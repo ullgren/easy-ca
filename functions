@@ -6,7 +6,9 @@ BINARIES="
 create-root-ca
 create-signing-ca
 create-server
+create-server-jks
 create-client
+create-client-jks
 revoke-cert
 functions
 "

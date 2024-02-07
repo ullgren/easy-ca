@@ -1,0 +1,117 @@
+#!/bin/bash
+# Pontus Ullgren
+
+usage() {
+    echo "Usage: $0 -c CLIENT_NAME"
+    echo "Issues a client certificate for CLIENT_NAME"
+    echo
+    echo "Options:"
+    echo "    -c CLIENT_NAME  Client name (commonName) for the new cert"
+    echo
+    exit 2
+}
+
+CLIENT_NAME=
+
+while getopts c: FLAG; do
+    case $FLAG in
+        c) CLIENT_NAME=${OPTARG}
+           ;;
+        *) usage
+           ;;
+    esac
+done
+
+if [ "${CLIENT_NAME}" == "" ]; then
+    usage
+fi
+
+BIN_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source ${BIN_DIR}/functions
+source ${BIN_DIR}/defaults.conf
+
+# Sanitize the commonName to make it suitable for use in filenames
+SAFE_NAME=`echo ${CLIENT_NAME} | sed 's/\*/star/g'`
+SAFE_NAME=`echo ${SAFE_NAME} | sed 's/[^A-Za-z0-9-]/-/g'`
+
+KEY=private/${SAFE_NAME}.client.key
+LEAFCERT=certs/${SAFE_NAME}.client.crt
+CHAINCERT=ca/ca.crt
+TARGET_KEYSTORE=certs/${SAFE_NAME}.client.jks
+TARGET_STOREPW=changeit
+
+
+if [ ! -f ${LEAFCERT} ] && [ ! -f ${KEY} ]; then
+    echo "Server certificate or key does not exists for '${CLIENT_NAME}', exiting."
+    exit 1
+fi
+
+# ----
+# Create PKCS#12 file to import using keytool later
+# ----
+
+# From https://www.sslshopper.com/ssl-converter.html:
+# The PKCS#12 or PFX format is a binary format for storing the server certificate,
+# any intermediate certificates, and the private key in one encryptable file. PFX
+# files usually have extensions such as .pfx and .p12. PFX files are typically used 
+# on Windows machines to import and export certificates and private keys.
+
+TMPPW=$$ # Some random password
+
+PKCS12FILE=`mktemp`
+
+if [[ $? != 0 ]]; then
+  echo "Creation of temporary PKCS12 file failed -- exiting" >&2; exit 1
+fi
+
+TRANSITFILE=`mktemp`
+
+if [[ $? != 0 ]]; then
+  echo "Creation of temporary transit file failed -- exiting" >&2; exit 1
+fi
+
+cat "$KEY" "$LEAFCERT" > "$TRANSITFILE"
+
+openssl pkcs12 -export -passout "pass:$TMPPW" -in "$TRANSITFILE" -name "${SAFE_NAME}" > "$PKCS12FILE"
+
+# ----
+# Import contents of PKCS12FILE into a Java keystore. WTF, Sun, what were you thinking?
+# ----
+
+if [[ -f "$TARGET_KEYSTORE" ]]; then
+  /bin/rm "$TARGET_KEYSTORE"
+fi
+
+keytool -importkeystore \
+   -deststorepass  "$TARGET_STOREPW" \
+   -destkeypass    "$TARGET_STOREPW" \
+   -destkeystore   "$TARGET_KEYSTORE" \
+   -srckeystore    "$PKCS12FILE" \
+   -srcstoretype  PKCS12 \
+   -srcstorepass  "$TMPPW" \
+   -alias "${SAFE_NAME}"
+
+/bin/rm "$PKCS12FILE"
+
+# ----
+# Import the chain certificate. This works empirically, it is not at all clear from the doc whether this is correct
+# ----
+
+echo "Importing chain"
+
+TT=-trustcacerts
+
+keytool -import $TT -storepass "$TARGET_STOREPW" -file "$CHAINCERT" -keystore "$TARGET_KEYSTORE" -alias chain
+
+
+# ----
+# Print contents
+# ----
+
+echo "Listing result"
+
+keytool -list -storepass "$TARGET_STOREPW" -keystore "$TARGET_KEYSTORE"
+
+
+
+
