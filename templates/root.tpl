@@ -65,6 +65,7 @@ localityName            = optional              # Included if present
 organizationName        = match                 # Must match
 organizationalUnitName  = optional              # Included if present
 commonName              = supplied              # Must be present
+serialNumber            = optional              # Included if present
 
 # Extensions for this root CA
 [ root_ca_ext ]

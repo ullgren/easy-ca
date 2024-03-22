@@ -26,6 +26,8 @@ organizationalUnitName_default	= {{CA_CERT_OU}}
 commonName			= "6. Common Name              "
 commonName_max			= 64
 commonName_default		= {{CA_HOSTNAME}}
+serialNumber                    = "7. Serial Number            "
+serialNumber_default            =
 
 [ server_reqext ]
 keyUsage                = critical,digitalSignature,keyEncipherment

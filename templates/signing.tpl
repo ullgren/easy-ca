@@ -73,6 +73,7 @@ localityName            = optional              # Included if present
 organizationName        = supplied              # Must be present
 organizationalUnitName  = optional              # Included if present
 commonName              = supplied              # Must be present
+serialNumber            = optional              # Included if present
 
 # Extensions for signing certs issued by this signing CA
 [ server_ext ]

@@ -24,6 +24,8 @@ organizationalUnitName_default  = {{CA_CERT_OU}}
 commonName                      = "6. Common Name              "
 commonName_max                  = 64
 commonName_default              = {{CA_USERNAME}}
+serialNumber                    = "7. Serial Number            "
+serialNumber_default            = 
 #emailAddress            = "7. Email Address            (eg, name@fqdn)"
 #emailAddress_max        = 40
 
